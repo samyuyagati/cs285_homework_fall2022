@@ -49,7 +49,9 @@ class SACAgent(BaseAgent):
         # TODO: 
         # 1. Compute the target Q value. 
         # HINT: You need to use the entropy term (alpha)
+        alpha = self.actor.alpha() 
         # 2. Get current Q estimates and calculate critic loss
+        
         # 3. Optimize the critic  
         return critic_loss
 
