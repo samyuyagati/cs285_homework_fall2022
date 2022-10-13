@@ -1,9 +1,11 @@
+import torch
 from collections import OrderedDict
 
 from cs285.critics.bootstrapped_continuous_critic import \
     BootstrappedContinuousCritic
 from cs285.infrastructure.replay_buffer import ReplayBuffer
 from cs285.infrastructure.utils import *
+from cs285.infrastructure import pytorch_util as ptu
 from cs285.policies.MLP_policy import MLPPolicyAC
 from .base_agent import BaseAgent
 
@@ -35,7 +37,7 @@ class ACAgent(BaseAgent):
         # for agent_params['num_critic_updates_per_agent_update'] steps,
         #     update the critic
         critic_loss = 0
-        for i in range(agent_params['num_critic_updates_per_agent_update']):
+        for i in range(self.agent_params['num_critic_updates_per_agent_update']):
           critic_loss = self.critic.update(ob_no, ac_na, next_ob_no, re_n, terminal_n)  
 
         # advantage = estimate_advantage(...)
@@ -44,7 +46,7 @@ class ACAgent(BaseAgent):
         #  for agent_params['num_actor_updates_per_agent_update'] steps,
         #     update the actor
         actor_loss = 0
-        for i in range(agent_params['num_actor_updates_per_agent_update']):
+        for i in range(self.agent_params['num_actor_updates_per_agent_update']):
           actor_loss = self.actor.update(ob_no, ac_na, adv_n=advantage)
 
         loss = OrderedDict()

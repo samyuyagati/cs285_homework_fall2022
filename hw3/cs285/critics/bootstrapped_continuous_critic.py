@@ -1,3 +1,4 @@
+import torch
 from .base_critic import BaseCritic
 from torch import nn
 from torch import optim
@@ -75,7 +76,7 @@ class BootstrappedContinuousCritic(nn.Module, BaseCritic):
         ob_no = ptu.from_numpy(ob_no)
         next_ob_no = ptu.from_numpy(next_ob_no)
         reward_n = ptu.from_numpy(reward_n)
-        terminal_n = put.from_numpy(terminal_n)
+        terminal_n = ptu.from_numpy(terminal_n)
         # TODO: Implement the pseudocode below: do the following (
         # self.num_grad_steps_per_target_update * self.num_target_updates)
         # times:
@@ -89,12 +90,14 @@ class BootstrappedContinuousCritic(nn.Module, BaseCritic):
             v_sp = self.forward(next_ob_no)
             assert v_sp.size() == reward_n.size()
             #     b) and computing the target values as r(s, a) + gamma * V(s')
+            # need to detach targets so when using multiple times loss isn't propagated
+            # through targets multiple times
             not_terminal_n = torch.as_tensor(1 - terminal_n)
-            targets = reward_n + self.gamma*v_sp*not_terminal_n
+            targets = (reward_n + self.gamma*v_sp*not_terminal_n).detach()
           # every iteration, update this critic using the observations and targets
+          self.optimizer.zero_grad()
           v_s = self.forward(ob_no)
           loss = self.loss(v_s, targets)
-          self.optimizer.zero_grad()
           loss.backward()
           self.optimizer.step()
             

@@ -132,7 +132,7 @@ class MLPPolicyAC(MLPPolicy):
         actions = ptu.from_numpy(actions)
         action_distribution = self.forward(observations)
         log_probs = action_distribution.log_prob(actions) 
-        if adv_n:
+        if adv_n is not None:
           advantages = ptu.from_numpy(adv_n)
           loss = -(log_probs * advantages).sum()
         else:
