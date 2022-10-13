@@ -72,18 +72,35 @@ class BootstrappedContinuousCritic(nn.Module, BaseCritic):
             returns:
                 training loss
         """
+        ob_no = ptu.from_numpy(ob_no)
+        next_ob_no = ptu.from_numpy(next_ob_no)
+        reward_n = ptu.from_numpy(reward_n)
+        terminal_n = put.from_numpy(terminal_n)
         # TODO: Implement the pseudocode below: do the following (
         # self.num_grad_steps_per_target_update * self.num_target_updates)
         # times:
-        # every self.num_grad_steps_per_target_update steps (which includes the
-        # first step), recompute the target values by
-        #     a) calculating V(s') by querying the critic with next_ob_no
-        #     b) and computing the target values as r(s, a) + gamma * V(s')
-        # every time, update this critic using the observations and targets
-        #
-        # HINT: don't forget to use terminal_n to cut off the V(s') (ie set it
-        #       to 0) when a terminal state is reached
-        # HINT: make sure to squeeze the output of the critic_network to ensure
-        #       that its dimensions match the reward
+        # set targets to dummy value to keep it in scope
+        targets = reward_n
+        for i in range(self.num_target_updates*self.num_grad_steps_per_target_update):
+          if i % self.num_grad_steps_per_target_update == 0:
+            # every self.num_grad_steps_per_target_update steps (which includes the
+            # first step), recompute the target values by
+            #     a) calculating V(s') by querying the critic with next_ob_no
+            v_sp = self.forward(next_ob_no)
+            assert v_sp.size() == reward_n.size()
+            #     b) and computing the target values as r(s, a) + gamma * V(s')
+            not_terminal_n = torch.as_tensor(1 - terminal_n)
+            targets = reward_n + self.gamma*v_sp*not_terminal_n
+          # every iteration, update this critic using the observations and targets
+          v_s = self.forward(ob_no)
+          loss = self.loss(v_s, targets)
+          self.optimizer.zero_grad()
+          loss.backward()
+          self.optimizer.step()
+            
+            # HINT: don't forget to use terminal_n to cut off the V(s') (ie set it
+            #       to 0) when a terminal state is reached
+            # HINT: make sure to squeeze the output of the critic_network to ensure
+            #       that its dimensions match the reward
 
         return loss.item()
