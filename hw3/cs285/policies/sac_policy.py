@@ -35,13 +35,23 @@ class MLPPolicySAC(MLPPolicy):
 
     @property
     def alpha(self):
-        # TODO: Formulate entropy term
-        return entropy
+        # Formulate entropy term
+        return torch.exp(self.log_alpha)
 
     def get_action(self, obs: np.ndarray, sample=True) -> np.ndarray:
-        # TODO: return sample from distribution if sampling
-        # if not sampling return the mean of the distribution 
-        return action
+        # return sample from distribution if sampling
+        # if not sampling return the mean of the distribution
+        if len(obs.shape) > 1:
+            observation = obs
+        else:
+            observation = obs[None]
+
+        if sample:
+          # Return the action that the policy prescribes
+          sampled_action = self.forward(ptu.from_numpy(observation)).sample()
+          return ptu.to_numpy(sampled_action)
+
+        return self.forward(ptu.from_numpy(observation)).mean() 
 
     # This function defines the forward pass of the network.
     # You can return anything you want, but you should be able to differentiate
@@ -49,15 +59,31 @@ class MLPPolicySAC(MLPPolicy):
     # return more flexible objects, such as a
     # `torch.distributions.Distribution` object. It's up to you!
     def forward(self, observation: torch.FloatTensor):
-        # TODO: Implement pass through network, computing logprobs and apply correction for Tanh squashing
-
-        # HINT: 
         # You will need to clip log values
         # You will need SquashedNormal from sac_utils file 
+        mean = torch.mean(observation)
+        std = torch.std(observation) 
+        action_distribution = sac_utils.SquashedNormal(mean, std)        
         return action_distribution
 
     def update(self, obs, critic):
+        obs = ptu.from_numpy(obs)
         # TODO Update actor network and entropy regularizer
         # return losses and alpha value
+        action_distribution = self.forward(obs)
+        action = action_distribution.sample()
+        log_probs = action_distribution.log_probs(action)
 
-        return actor_loss, alpha_loss, self.alpha
+        alpha_loss = -self.alpha()*log_probs - self.alpha()*self.target_entropy
+        self.log_alpha_optimizer.zero_grad()
+        alpha_loss.backward()
+        self.log_alpha_optimizer.step()
+
+        # From Eq 3 in paper: E(Q - log(pi(a|s)))
+        q1, q2 = critic(obs, action)
+        actor_loss = -torch.mean((torch.minimum(q1, q2) - log_probs))
+        self.optimizer.zero_grad()
+        actor_loss.backward()
+        self.optimizer.step()
+
+        return actor_loss, alpha_loss, self.alpha()

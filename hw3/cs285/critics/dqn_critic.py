@@ -75,7 +75,7 @@ class DQNCritic(BaseCritic):
             # target Q-network. Please review Lecture 8 for more details,
             # and page 4 of https://arxiv.org/pdf/1509.06461.pdf is also a good reference.
             # Select action w/ self.q_net; self.q_net has output size ob_dim x num_actions 
-            ac_tp1 = self.q_net(next_ob_no).argmax(1)
+            ac_tp1 = qa_t_values.argmax(dim=1)
             q_tp1 = torch.gather(qa_tp1_values, 1, ac_tp1.unsqueeze(1)).squeeze(1) 
         else:
             q_tp1, _ = qa_tp1_values.max(dim=1)
