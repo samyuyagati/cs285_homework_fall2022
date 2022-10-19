@@ -192,6 +192,7 @@ class RL_Trainer(object):
                 # perform logging
                 print('\nBeginning logging procedure...')
                 if isinstance(self.agent, DQNAgent):
+                    print('performing DQN logging')
                     self.perform_dqn_logging(all_logs)
                 else:
                     self.perform_logging(itr, paths, eval_policy, train_video_paths, all_logs)
