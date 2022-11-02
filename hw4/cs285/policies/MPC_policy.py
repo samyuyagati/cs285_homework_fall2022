@@ -62,7 +62,9 @@ class MPCPolicy(BasePolicy):
             # iteratively as described in Section 3.3, "Iterative Random-Shooting with Refinement" of
             # https://arxiv.org/pdf/1909.11652.pdf
             elite_mean = np.zeros((horizon, self.ac_dim))
-            elite_variance = np.zeros((horizon, self.ac_dim)) 
+            elite_variance = np.zeros((horizon, self.ac_dim))
+#            elite_mean = np.zeros(self.ac_dim)
+#            elite_variance = np.zeros(self.ac_dim) 
             for i in range(self.cem_iterations):
                 # - Sample candidate sequences from a Gaussian with the current 
                 #   elite mean and variance
@@ -74,18 +76,28 @@ class MPCPolicy(BasePolicy):
                 else:
                   candidate_action_sequences = np.random.normal(elite_mean, 
                                                   elite_variance, 
+#                                                  size=(num_sequences, self.ac_dim))
                                                   size=(num_sequences, horizon, self.ac_dim)) 
                 # - Get the top `self.cem_num_elites` elites
                 #     (Hint: what existing function can we use to compute rewards for
                 #      our candidate sequences in order to rank them?)
+                # TODO print predicted rewards, make sure it's going up over iterations
                 predicted_rewards = self.evaluate_candidate_sequences(candidate_action_sequences, obs)
-                top_elites_idxs = np.argpartition(predicted_rewards, -self.cem_num_elites)[-self.cem_num_elites:]
+                assert predicted_rewards.shape == (num_sequences,)
+#                print("ITERATION", i)
+#                print(elite_mean)
+#                top_elites_idxs = np.argpartition(predicted_rewards, -self.cem_num_elites)[-self.cem_num_elites:]
+                top_elites_idxs = np.argsort(predicted_rewards)[-self.cem_num_elites:] 
                 top_elites = candidate_action_sequences[top_elites_idxs]
+#                assert top_elites.shape == (self.cem_num_elites, self.ac_dim)
                 assert top_elites.shape == (self.cem_num_elites, horizon, self.ac_dim)
 
                 # - Update the elite mean and variance
                 elite_mean = self.cem_alpha*np.mean(top_elites, axis=0) + (1 - self.cem_alpha)*elite_mean
-                elite_variance = self.cem_alpha*np.var(top_elites, axis=0) + (1 - self.cem_alpha)*elite_variance
+                elite_variance = self.cem_alpha*np.std(top_elites, axis=0) + (1 - self.cem_alpha)*elite_variance
+#                assert elite_mean.shape == (self.ac_dim, )
+#                assert elite_variance.shape == (self.ac_dim, )
+
                 assert elite_mean.shape == (horizon, self.ac_dim)
                 assert elite_variance.shape == (horizon, self.ac_dim)
 
