@@ -78,8 +78,8 @@ class FFModel(nn.Module, BaseModel):
                 unnormalized) output of the delta network. This is needed
         """
         # normalize input data to mean 0, std 1
-        obs_normalized = # TODO(Q1)
-        acs_normalized = # TODO(Q1)
+        obs_normalized = normalize(obs_unnormalized, 0, 1)
+        acs_normalized = normalize(acs_unnormalized, 0, 1)
 
         # predicted change in obs
         concatenated_input = torch.cat([obs_normalized, acs_normalized], dim=1)
@@ -87,8 +87,9 @@ class FFModel(nn.Module, BaseModel):
         # TODO(Q1) compute delta_pred_normalized and next_obs_pred
         # Hint: as described in the PDF, the output of the network is the
         # *normalized change* in state, i.e. normalized(s_t+1 - s_t).
-        delta_pred_normalized = # TODO(Q1)
-        next_obs_pred = # TODO(Q1)
+        delta_pred_normalized = self.delta_network(concatenated_input)
+        delta_pred = unnormalize(delta_pred_normalized, delta_mean, delta_std)
+        next_obs_pred = obs_unnormalized + delta_pred
         return next_obs_pred, delta_pred_normalized
 
     def get_prediction(self, obs, acs, data_statistics):
@@ -105,10 +106,26 @@ class FFModel(nn.Module, BaseModel):
              - 'delta_std'
         :return: a numpy array of the predicted next-states (s_t+1)
         """
-        prediction = # TODO(Q1) get the predicted next-states (s_t+1) as a numpy array
+        # Make everything a tensor
+        obs = ptu.from_numpy(obs)
+        acs = ptu.from_numpy(acs)
+        data_stats_tensors = {}
+        for k in data_statistics.keys():
+          data_stats_tensors[k] = ptu.from_numpy(data_statistics[k])
+
+        prediction = self(obs,
+            acs,
+            data_stats_tensors['obs_mean'],
+            data_stats_tensors['obs_std'],
+            data_stats_tensors['acs_mean'],
+            data_stats_tensors['acs_std'],
+            data_stats_tensors['delta_mean'],
+            data_stats_tensors['delta_std'])[0]
+
+        # (Q1) get the predicted next-states (s_t+1) as a numpy array
         # Hint: `self(...)` returns a tuple, but you only need to use one of the
         # outputs.
-        return prediction
+        return prediction.cpu().detach().numpy()
 
     def update(self, observations, actions, next_observations, data_statistics):
         """
@@ -125,12 +142,33 @@ class FFModel(nn.Module, BaseModel):
              - 'delta_std'
         :return:
         """
-        target = # TODO(Q1) compute the normalized target for the model.
+        # Make everything a tensor
+        observations = ptu.from_numpy(observations)
+        actions = ptu.from_numpy(actions)
+        next_observations = ptu.from_numpy(next_observations)
+        data_stats_tensors = {}
+        for k in data_statistics.keys():
+          data_stats_tensors[k] = ptu.from_numpy(data_statistics[k])
+
+        # compute the normalized target for the model.
+        target = normalize(next_observations - observations,
+                           data_stats_tensors['delta_mean'],
+                           data_stats_tensors['delta_std'])
         # Hint: you should use `data_statistics['delta_mean']` and
         # `data_statistics['delta_std']`, which keep track of the mean
         # and standard deviation of the model.
 
-        loss = # TODO(Q1) compute the loss
+        _, delta_pred_normalized = self(observations, 
+                                        actions,
+                                        data_stats_tensors['obs_mean'],
+                                        data_stats_tensors['obs_std'],
+                                        data_stats_tensors['acs_mean'],
+                                        data_stats_tensors['acs_std'],
+                                        data_stats_tensors['delta_mean'],
+                                        data_stats_tensors['delta_std'])
+
+        # compute the loss        
+        loss = self.loss(target, delta_pred_normalized) 
         # Hint: `self(...)` returns a tuple, but you only need to use one of the
         # outputs.
 
